@@ -99,6 +99,8 @@ int main(int argc, char *argv[]){
 		return 0;
 	}
 
+	// FIGURE OUT WHAT ORDER EVERYTHING IS SCHEDULED HERE
+
 	pthread_t *thread = (pthread_t *)malloc(sizeof(pthread_t)*atoi(argv[2])); // Array of threads
 	pthread_cond_t *c = (pthread_cond_t *)malloc(sizeof(pthread_cond_t)*atoi(argv[2])); // Array of convars
 
@@ -121,6 +123,7 @@ int main(int argc, char *argv[]){
 		}
 	}
 
+	// Test stuff
 	usleep(3*100000);
 	pthread_mutex_lock(&mutex);
 	pthread_cond_signal(&condArray[2]);
