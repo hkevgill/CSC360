@@ -9,11 +9,12 @@
 
 /* Global Variables */
 
-pthread_cond_t *condArray;
+pthread_cond_t *condArray; // Global array of condition variables
 
-FILE *fp;
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+FILE *fp; // File pointer
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; // Track mutex
 
+// Struct for each thread
 typedef struct train{
 	int loadTime;
 	int crossTime;
@@ -22,10 +23,7 @@ typedef struct train{
 	int id;
 }train;
 
-/*
- * Removes newline '\n' characters
- * Assumes they are at the end of the line
- */
+// Removes newline '\n' characters, assumes they are at the end of the line
 void chomp(char line[]){
 	assert(line != NULL);
 
@@ -40,6 +38,7 @@ void chomp(char line[]){
 	return;
 }
 
+// Tokenize the text file to create new threads
 void parse(char ReadLine[MAXLINE], char *tokens[1024], char *cmd_in){
 	int count = 0;
 
@@ -53,16 +52,19 @@ void parse(char ReadLine[MAXLINE], char *tokens[1024], char *cmd_in){
 
 }
 
+// Train handler function
 void *trains(void *args){
 
 	train *t_cpy = args;
-	usleep(t_cpy->loadTime);
+	usleep(t_cpy->loadTime*10000); // Loading time
 
 	pthread_mutex_lock(&mutex);
 
-	condArray[t_cpy->id] = t_cpy->con;
+	condArray[t_cpy->id] = t_cpy->con; // Put condition variabled into global array
 
-	pthread_cond_wait(&condArray[t_cpy->id], &mutex);
+	pthread_cond_wait(&condArray[t_cpy->id], &mutex); // Wait to cross
+
+	usleep(t_cpy->crossTime); // Crossing time
 
 	printf("THREAD FINISHED %d\n", t_cpy->loadTime);
 
@@ -71,9 +73,12 @@ void *trains(void *args){
 	return ((void *)0);
 }
 
+// Main scheduling thread
+// Figures out who goes next
+// Sends a signal to that thread
 int main(int argc, char *argv[]){
 
-	condArray = (pthread_cond_t *)malloc(sizeof(pthread_cond_t)*atoi(argv[2]));
+	condArray = (pthread_cond_t *)malloc(sizeof(pthread_cond_t)*atoi(argv[2])); // Allocate space for global convar array
 
 	char ReadLine[MAXLINE];
 	char *tokens[1024];
@@ -81,20 +86,23 @@ int main(int argc, char *argv[]){
 	int count;
 	int ret;
 
+	// Make sure the right amount of arguments are passed
 	if(argc != 3){
 		printf("usage: %s filename\n", argv[0]);
 		return 0;
 	}
 
+	// Open the file in read mode
 	fp = fopen(argv[1], "r");
 	if(fp == NULL){
 		printf("Can't open file, Bye\n");
 		return 0;
 	}
 
-	pthread_t *thread = (pthread_t *)malloc(sizeof(pthread_t)*atoi(argv[2]));
-	pthread_cond_t *c = (pthread_cond_t *)malloc(sizeof(pthread_cond_t)*atoi(argv[2]));
+	pthread_t *thread = (pthread_t *)malloc(sizeof(pthread_t)*atoi(argv[2])); // Array of threads
+	pthread_cond_t *c = (pthread_cond_t *)malloc(sizeof(pthread_cond_t)*atoi(argv[2])); // Array of convars
 
+	// Loop through and create a thread for each train
 	for(count = 0; count < atoi(argv[2]); count++){
 		fgets(ReadLine, MAXLINE, fp);
 		chomp(ReadLine);
@@ -113,7 +121,7 @@ int main(int argc, char *argv[]){
 		}
 	}
 
-	usleep(300);
+	usleep(3*100000);
 	pthread_mutex_lock(&mutex);
 	pthread_cond_signal(&condArray[2]);
 	pthread_mutex_unlock(&mutex);
