@@ -8,13 +8,18 @@
 #define MAXLINE 100
 
 /* Global Variables */
+
+pthread_cond_t *condArray;
+
 FILE *fp;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 typedef struct train{
 	int loadTime;
 	int crossTime;
-	char priority[1];
+	char priority;
+	pthread_cond_t con;
+	int id;
 }train;
 
 /*
@@ -51,14 +56,24 @@ void parse(char ReadLine[MAXLINE], char *tokens[1024], char *cmd_in){
 void *trains(void *args){
 
 	train *t_cpy = args;
-	sleep(t_cpy->loadTime);
+	usleep(t_cpy->loadTime);
+
+	pthread_mutex_lock(&mutex);
+
+	condArray[t_cpy->id] = t_cpy->con;
+
+	pthread_cond_wait(&condArray[t_cpy->id], &mutex);
 
 	printf("THREAD FINISHED %d\n", t_cpy->loadTime);
+
+	pthread_mutex_unlock(&mutex);
 
 	return ((void *)0);
 }
 
 int main(int argc, char *argv[]){
+
+	condArray = (pthread_cond_t *)malloc(sizeof(pthread_cond_t)*atoi(argv[2]));
 
 	char ReadLine[MAXLINE];
 	char *tokens[1024];
@@ -78,6 +93,7 @@ int main(int argc, char *argv[]){
 	}
 
 	pthread_t *thread = (pthread_t *)malloc(sizeof(pthread_t)*atoi(argv[2]));
+	pthread_cond_t *c = (pthread_cond_t *)malloc(sizeof(pthread_cond_t)*atoi(argv[2]));
 
 	for(count = 0; count < atoi(argv[2]); count++){
 		fgets(ReadLine, MAXLINE, fp);
@@ -85,22 +101,41 @@ int main(int argc, char *argv[]){
 		parse(ReadLine, tokens, cmd_in);
 
 		train *t = (train*)malloc(sizeof(train));
-		t->priority[0] = atoi(tokens[0]);
+		t->priority = atoi(tokens[0]);
 		t->loadTime = atoi(tokens[1]);
 		t->crossTime = atoi(tokens[2]);
-
+		t->id = count;
+		t->con = c[count];
 
 		ret = pthread_create(&thread[count], NULL, &trains, t);
 		if(ret != 0){
 			perror("pthread create error\n");
 		}
-
 	}
 
-	int i;
-	for(i = 0; i < atoi(argv[2]); i++){
-		pthread_join(thread[i], NULL);
-	}
+	usleep(300);
+	pthread_mutex_lock(&mutex);
+	pthread_cond_signal(&condArray[2]);
+	pthread_mutex_unlock(&mutex);
+
+	pthread_join(thread[2], NULL);
+	pthread_mutex_lock(&mutex);
+	pthread_cond_signal(&condArray[1]);
+	pthread_mutex_unlock(&mutex);
+
+	pthread_join(thread[1], NULL);
+	pthread_mutex_lock(&mutex);
+	pthread_cond_signal(&condArray[0]);
+	pthread_mutex_unlock(&mutex);
+
+	pthread_join(thread[0], NULL);
+
+
+
+	// int i;
+	// for(i = 0; i < atoi(argv[2]); i++){
+	// 	pthread_join(thread[i], NULL);
+	// }
 
 	printf("MAIN FINISHED!!!\n");
 
