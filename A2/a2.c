@@ -56,7 +56,8 @@ void parse(char ReadLine[MAXLINE], char *tokens[1024], char *cmd_in){
 void *trains(void *args){
 
 	train *t_cpy = args;
-	usleep(t_cpy->loadTime*10000); // Loading time
+	usleep(t_cpy->loadTime*100000); // Loading time
+	printf("Train %d is ready to\n", t_cpy->id);
 
 	pthread_mutex_lock(&mutex);
 
