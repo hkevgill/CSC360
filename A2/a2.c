@@ -12,16 +12,92 @@
 pthread_cond_t *condArray; // Global array of condition variables
 
 FILE *fp; // File pointer
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; // Track mutex
+pthread_mutex_t track = PTHREAD_MUTEX_INITIALIZER; // Track mutex
+pthread_mutex_t data_struct = PTHREAD_MUTEX_INITIALIZER;
 
 // Struct for each thread
 typedef struct train{
 	int loadTime;
 	int crossTime;
-	char priority;
+	char *priority;
 	pthread_cond_t con;
 	int id;
 }train;
+
+// Linked list (PQ) that keeps track of currently loaded trains
+typedef struct PQueue{
+	int id;
+	char *priority;
+	struct PQueue *next;
+}PQ;
+
+PQ *head = NULL; // Initialize head to null
+
+// Insert the train into the PQ, in a special way:
+// High priority in first half of PQ in order of being loaded
+// Low priority in second half of PQ in order of being loaded
+void insertTrain(int newID, char *newPriority){
+	PQ *newTrain = (PQ *)malloc(sizeof(PQ));
+	if(newTrain == NULL){
+		exit(1);
+	}
+
+	newTrain->id = newID;
+	newTrain->priority = newPriority;
+
+	PQ *p;
+	p = head;
+
+	if(head == NULL){
+		newTrain->next = NULL;
+		head = newTrain;
+	}
+	else if(!strcmp(newTrain->priority, "E") || !strcmp(newTrain->priority, "W")){
+		while(p->next != NULL && !strcmp(p->next->priority, "e") && !strcmp(p->next->priority, "w")){
+			p = p->next;
+		}
+		newTrain->next = p->next;
+		p->next = newTrain;
+	}
+	else if(!strcmp(newTrain->priority, "e") || !strcmp(newTrain->priority, "w")){
+		newTrain->next = NULL;
+
+		while(p->next != NULL){
+			p = p->next;
+		}
+		p->next = newTrain;
+
+	}
+	else{
+		printf("Train was scheduled wrong, break program");
+		exit(1);
+	}
+
+}
+
+// Delete train from PQ by its id
+void deleteTrain(int newID){
+	PQ *curr = head;
+	PQ *prev;
+	while(curr != NULL){
+		if(( (curr->id) == newID)){
+			if(curr == head){
+				head = curr->next;
+				free(curr);
+				return;
+			}
+			else{
+				prev->next = curr->next;
+				free(curr);
+				return;
+			}
+		}
+		else{
+			prev = curr;
+			curr = curr->next;
+		}
+	}
+}
 
 // Removes newline '\n' characters, assumes they are at the end of the line
 void chomp(char line[]){
@@ -58,17 +134,27 @@ void *trains(void *args){
 	train *t_cpy = args;
 	usleep(t_cpy->loadTime*10000); // Loading time
 
-	pthread_mutex_lock(&mutex);
+	// Lock PQ and insert into the queue because the train has loaded
+	pthread_mutex_lock(&data_struct);
+	insertTrain(t_cpy->id, t_cpy->priority);
+	pthread_mutex_unlock(&data_struct);
+
+	pthread_mutex_lock(&track); // Lock track
 
 	condArray[t_cpy->id] = t_cpy->con; // Put condition variabled into global array
 
-	pthread_cond_wait(&condArray[t_cpy->id], &mutex); // Wait to cross
+	pthread_cond_wait(&condArray[t_cpy->id], &track); // Wait to cross
 
 	usleep(t_cpy->crossTime); // Crossing time
 
 	printf("THREAD FINISHED %d\n", t_cpy->loadTime);
 
-	pthread_mutex_unlock(&mutex);
+	// Lock PQ and delete from queue because crossing is complete
+	pthread_mutex_lock(&data_struct);
+	deleteTrain(t_cpy->id);
+	pthread_mutex_unlock(&data_struct);
+
+	pthread_mutex_unlock(&track); // Unlock track
 
 	return ((void *)0);
 }
@@ -111,7 +197,14 @@ int main(int argc, char *argv[]){
 		parse(ReadLine, tokens, cmd_in);
 
 		train *t = (train*)malloc(sizeof(train));
-		t->priority = atoi(tokens[0]);
+		if(!strcmp(tokens[0], "E"))
+			t->priority = "E";
+		if(!strcmp(tokens[0], "W"))
+			t->priority = "W";
+		if(!strcmp(tokens[0], "e"))
+			t->priority = "e";
+		if(!strcmp(tokens[0], "w"))
+			t->priority = "w";
 		t->loadTime = atoi(tokens[1]);
 		t->crossTime = atoi(tokens[2]);
 		t->id = count;
@@ -125,21 +218,29 @@ int main(int argc, char *argv[]){
 
 	// Test stuff
 	usleep(3*100000);
-	pthread_mutex_lock(&mutex);
+	pthread_mutex_lock(&track);
 	pthread_cond_signal(&condArray[2]);
-	pthread_mutex_unlock(&mutex);
+	pthread_mutex_unlock(&track);
 
 	pthread_join(thread[2], NULL);
-	pthread_mutex_lock(&mutex);
+	pthread_mutex_lock(&track);
 	pthread_cond_signal(&condArray[1]);
-	pthread_mutex_unlock(&mutex);
+	pthread_mutex_unlock(&track);
 
 	pthread_join(thread[1], NULL);
-	pthread_mutex_lock(&mutex);
+	pthread_mutex_lock(&track);
 	pthread_cond_signal(&condArray[0]);
-	pthread_mutex_unlock(&mutex);
+	pthread_mutex_unlock(&track);
 
 	pthread_join(thread[0], NULL);
+
+
+	// Print what's in PQ
+	PQ *p;
+
+	for(p = head; p != NULL; p = p->next){
+		printf("%d ", p->id);
+	}
 
 
 
