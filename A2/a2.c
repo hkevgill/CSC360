@@ -15,9 +15,8 @@ pthread_mutex_t track = PTHREAD_MUTEX_INITIALIZER; // Track mutex
 pthread_mutex_t data_struct = PTHREAD_MUTEX_INITIALIZER; // PQ mutex
 
 pthread_cond_t *condArray; // Global array of condition variables
-pthread_cond_t dispatchCond = PTHREAD_COND_INITIALIZER;
 
-int trainsWaiting = 0;
+//int trainsWaiting = 0;
 
 // Struct for each thread
 typedef struct train{
@@ -141,7 +140,7 @@ void *trains(void *args){
 	// Lock PQ and insert into the queue because the train has loaded
 	pthread_mutex_lock(&data_struct);
 	insertTrain(t_cpy->id, t_cpy->priority);
-	trainsWaiting++;
+	//trainsWaiting++;
 	printf("Train %2d is ready to go %4s\n", t_cpy->id, t_cpy->priority);
 	pthread_mutex_unlock(&data_struct);
 
@@ -149,7 +148,6 @@ void *trains(void *args){
 
 	condArray[t_cpy->id] = t_cpy->con; // Put condition variabled into global array
 
-	pthread_cond_signal(&dispatchCond);
 	pthread_cond_wait(&condArray[t_cpy->id], &track); // Wait to cross
 
 	printf("Train %2d is ON the main track going %4s\n", t_cpy->id, t_cpy->priority);
@@ -158,7 +156,7 @@ void *trains(void *args){
 
 	/// Lock PQ and delete from queue because crossing is complete
 	pthread_mutex_lock(&data_struct);
-	trainsWaiting--;
+	//trainsWaiting--;
 	deleteTrain(t_cpy->id);
 	pthread_mutex_unlock(&data_struct);
 
@@ -225,50 +223,32 @@ int main(int argc, char *argv[]){
 		}
 	}
 
-	// Test stuff
-	// usleep(3*100000);
-	// pthread_mutex_lock(&track);
-	// pthread_cond_signal(&condArray[2]);tokens[1024],
-	// pthread_mutex_unlock(&track);
-
-	// pthread_join(thread[2], NULL);
-	// pthread_mutex_lock(&track);
-	// pthread_cond_signal(&condArray[1]);
-	// pthread_mutex_unlock(&track);
-
-	// pthread_join(thread[1], NULL);
-	// pthread_mutex_lock(&track);
-	// pthread_cond_signal(&condArray[0]);
-	// pthread_mutex_unlock(&track);
-
-	// pthread_join(thread[0], NULL);
-
-
-	// Print what's in PQ
-	// PQ *p;
-	// for(p = head; p != NULL; p = p->next){
-	// 	printf("%d ", p->id);
-	// }
-
-
 	// SCHEDULE! WORK IN PROGRESS
-	int locked = 1;
+	int locked = -1;
 	int count2 = 0;
+
 	int temp;
 	for(;;){
-		locked = 1;
 		pthread_mutex_lock(&data_struct);
-		if(trainsWaiting == 0){
-			pthread_cond_wait(&dispatchCond, &data_struct);
+
+		if(pthread_mutex_trylock(&track) == 0){
+			if(head != NULL){
+				locked = 0;
+				temp = head->id;
+				pthread_cond_signal(&condArray[temp]);
+				pthread_mutex_unlock(&track);
+			}
+			else{
+				pthread_mutex_unlock(&track);
+				pthread_mutex_unlock(&data_struct);
+				continue;
+			}
 		}
-		locked = pthread_mutex_trylock(&track);
-		temp = head->id;
-		pthread_cond_signal(&condArray[temp]);
-		pthread_mutex_unlock(&track);
 
 		pthread_mutex_unlock(&data_struct);
 		if(locked == 0){
 			pthread_join(thread[temp], NULL);
+			locked = -1;
 			count2++;
 		}
 		if(count2 == atoi(argv[2])){
