@@ -151,7 +151,7 @@ void *trains(void *args){
 	condArray[t_cpy->id] = t_cpy->con; // Put condition variabled into global array
 
 	pthread_cond_signal(&dispatchCond);
-	//pthread_cond_wait(&condArray[t_cpy->id], &track); // Wait to cross
+	pthread_cond_wait(&condArray[t_cpy->id], &track); // Wait to cross
 
 	printf("Train %2d is ON the main track going %4s\n", t_cpy->id, t_cpy->priority);
 	usleep(t_cpy->crossTime*100000); // Crossing time
@@ -254,9 +254,9 @@ int main(int argc, char *argv[]){
 
 	// SCHEDULE! WORK IN PROGRESS
 	int locked = 1;
+	int count2 = 0;
 	int temp;
-	int i;
-	for(i = 0; i < atoi(argv[2]); i++){
+	for(;;){
 		locked = 1;
 		pthread_mutex_lock(&data_struct);
 		if(trainsWaiting == 0){
@@ -270,6 +270,10 @@ int main(int argc, char *argv[]){
 		pthread_mutex_unlock(&data_struct);
 		if(locked == 0){
 			pthread_join(thread[temp], NULL);
+			count2++;
+		}
+		if(count2 == atoi(argv[2])){
+			break;
 		}
 	}
 
