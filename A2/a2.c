@@ -13,7 +13,6 @@ FILE *fp; // File pointer
 
 pthread_mutex_t track = PTHREAD_MUTEX_INITIALIZER; // Track mutex
 pthread_mutex_t data_struct = PTHREAD_MUTEX_INITIALIZER; // PQ mutex
-pthread_mutex_t condMutex = PTHREAD_MUTEX_INITIALIZER; // conArray mutex
 
 pthread_cond_t *condArray; // Global array of condition variables
 pthread_cond_t dispatchCond = PTHREAD_COND_INITIALIZER;
