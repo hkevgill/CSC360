@@ -249,6 +249,24 @@ int main(int argc, char *argv[]){
 							break;
 						}
 					}
+					if(strcmp(lastPriority, "East")){
+						for(p = head; p != NULL; p = p->next){
+							if(!strcmp(p->priority, "West")){
+								temp = p->id;
+								lastPriority = p->priority;
+								break;
+							}
+						}
+						if(strcmp(lastPriority, "West")){
+							for(p = head; p != NULL; p = p->next){
+								if(!strcmp(p->priority, "east")){
+									temp = p->id;
+									lastPriority = p->priority;
+									break;
+								}
+							}
+						}
+					}
 				}
 				else{
 					if(!strcmp(lastPriority, "East") || !strcmp(lastPriority, "West")){ // Then last one was High Priority
