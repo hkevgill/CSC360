@@ -162,12 +162,6 @@ void *trains(void *args){
 
 	pthread_mutex_unlock(&track); // Unlock track
 
-	PQ *w;
-	for(w = head; w != NULL; w = w->next){
-		printf("%s:%d\n", w->priority, w->id);
-	}
-	sleep(1);
-
 	pthread_mutex_lock(&joiner);
 	usleep(1000); // Small delta delay
 	return ((void *)0);
@@ -242,10 +236,12 @@ int main(int argc, char *argv[]){
 		if(pthread_mutex_trylock(&track) == 0){
 			if(head != NULL){
 				pthread_mutex_lock(&joiner);
-				temp = head->id;
-				lastPriority = head->priority;
+				// temp = head->id;
+				// lastPriority = head->priority;
 
 				if(count2 == 0){ // Then this is the first train
+					temp = head->id;
+					lastPriority = head->priority;
 					for(p = head; p != NULL; p = p->next){ // Count amount of items in the list
 						if(!strcmp(p->priority, "East")){
 							temp = p->id;
@@ -255,72 +251,147 @@ int main(int argc, char *argv[]){
 					}
 				}
 				else{
-					if(!strcmp(lastPriority, "East")){
-						for(p = head; p != NULL; p = p->next){
-							if(!strcmp(p->priority, "west")){
-								temp = p->id;
-								lastPriority = p->priority;
-								break;
-							}
-						}
-						for(p = head; p != NULL; p = p->next){
-							if(!strcmp(p->priority, "West")){
-								temp = p->id;
-								lastPriority = p->priority;
-								break;
-							}
-						}
-						if(!strcmp(lastPriority, "west")){
+					if(!strcmp(lastPriority, "East") || !strcmp(lastPriority, "West")){ // Then last one was High Priority
+						if(!strcmp(lastPriority, "East")){ // Last one was High priority East
 							for(p = head; p != NULL; p = p->next){
-								if(!strcmp(p->priority, "East") && (p->id != temp)){
+								if(!strcmp(p->priority, "west")){
 									temp = p->id;
 									lastPriority = p->priority;
 									break;
 								}
 							}
-						}
-					}
-					else if(!strcmp(lastPriority, "West")){
-						for(p = head; p != NULL; p = p->next){
-							if(!strcmp(p->priority, "east")){
-								temp = p->id;
-								lastPriority = p->priority;
-								break;
+							if(strcmp(lastPriority, "west")){
+								for(p = head; p != NULL; p = p->next){
+									if(!strcmp(p->priority, "east")){
+										temp = p->id;
+										lastPriority = p->priority;
+										break;
+									}
+								}
 							}
-						}
-						for(p = head; p != NULL; p = p->next){
-							if(!strcmp(p->priority, "East")){
-								temp = p->id;
-								lastPriority = p->priority;
-								break;
-							}
-						}
-						if(!strcmp(lastPriority, "east")){
 							for(p = head; p != NULL; p = p->next){
-								if(!strcmp(p->priority, "West") && (p->id != temp)){
+								if(!strcmp(p->priority, "West")){
 									temp = p->id;
 									lastPriority = p->priority;
 									break;
 								}
 							}
+							if(!strcmp(lastPriority, "west") || !strcmp(lastPriority, "east")){
+								for(p = head; p != NULL; p = p->next){
+									if(!strcmp(p->priority, "East") && (p->id != temp)){
+										temp = p->id;
+										lastPriority = p->priority;
+										break;
+									}
+								}
+							}
 						}
-					}
-					else if(!strcmp(lastPriority, "east")){// ALWAYS GOES IN HERE
-						for(p = head; p != NULL; p = p->next){
-							if(!strcmp(p->priority, "west")){
-								temp = p->id;
-								lastPriority = p->priority;
-								printf("_________________________________________________ %s\n", lastPriority);
-								break;
+						else if(!strcmp(lastPriority, "West")){ // Last one was High priority West
+							for(p = head; p != NULL; p = p->next){
+								if(!strcmp(p->priority, "east")){
+									temp = p->id;
+									lastPriority = p->priority;
+									break;
+								}
+							}
+							if(strcmp(lastPriority, "east")){
+								for(p = head; p != NULL; p = p->next){
+									if(!strcmp(p->priority, "west")){
+										temp = p->id;
+										lastPriority = p->priority;
+										break;
+									}
+								}
+							}
+							for(p = head; p != NULL; p = p->next){
+								if(!strcmp(p->priority, "East")){
+									temp = p->id;
+									lastPriority = p->priority;
+									break;
+								}
+							}
+							if(!strcmp(lastPriority, "east") || !strcmp(lastPriority, "west")){
+								for(p = head; p != NULL; p = p->next){
+									if(!strcmp(p->priority, "West") && (p->id != temp)){
+										temp = p->id;
+										lastPriority = p->priority;
+										break;
+									}
+								}
 							}
 						}
 					}
-					else if(!strcmp(lastPriority, "west")){
-						for(p = head; p != NULL; p = p->next){
-							if(!strcmp(p->priority, "east")){
-								temp = p->id;
-								lastPriority = p->priority;
-								break;
+					else{ // Then last one was Low Priority
+						if(!strcmp(lastPriority, "east")){ // Last one was low priority east
+							for(p = head; p != NULL; p = p->next){
+								if(!strcmp(p->priority, "West")){
+									temp = p->id;
+									lastPriority = p->priority;
+									break;
+								}
+							}
+							if(!strcmp(lastPriority, "east")){
+								for(p = head; p != NULL; p = p->next){
+									if(!strcmp(p->priority, "East")){
+										temp = p->id;
+										lastPriority = p->priority;
+										break;
+									}
+								}
+							}
+							if(strcmp(lastPriority, "West") && strcmp(lastPriority, "East")){
+								for(p = head; p != NULL; p = p->next){
+									if(!strcmp(p->priority, "west")){
+										temp = p->id;
+										lastPriority = p->priority;
+										break;
+									}
+								}
+								if(strcmp(lastPriority, "west")){
+									for(p = head; p != NULL; p = p->next){
+										if(!strcmp(p->priority, "east")){
+											temp = p->id;
+											lastPriority = p->priority;
+											break;
+										}
+									}
+								}
+							}
+						}
+						else if(!strcmp(lastPriority, "west")){ // Last one was low priority west
+							for(p = head; p != NULL; p = p->next){
+								if(!strcmp(p->priority, "East")){
+									temp = p->id;
+									lastPriority = p->priority;
+									break;
+								}
+							}
+							if(!strcmp(lastPriority, "west")){
+								for(p = head; p != NULL; p = p->next){
+									if(!strcmp(p->priority, "West")){
+										temp = p->id;
+										lastPriority = p->priority;
+										break;
+									}
+								}
+							}
+							if(strcmp(lastPriority, "West") && strcmp(lastPriority, "East")){
+								for(p = head; p != NULL; p = p->next){
+									if(!strcmp(p->priority, "east")){
+										temp = p->id;
+										lastPriority = p->priority;
+										break;
+									}
+								}
+								if(strcmp(lastPriority, "east")){
+									for(p = head; p != NULL; p = p->next){
+										if(!strcmp(p->priority, "west")){
+											temp = p->id;
+											lastPriority = p->priority;
+											break;
+										}
+									}
+								}
 							}
 						}
 					}
