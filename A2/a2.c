@@ -32,6 +32,7 @@ typedef struct train{
 typedef struct PQueue{
 	int id;
 	char *priority;
+	int loadTime;
 	struct PQueue *next;
 }PQ;
 
@@ -40,7 +41,7 @@ PQ *head = NULL; // Initialize head to null
 // Insert the train into the PQ, in a special way:
 // High priority in first half of PQ in order of being loaded
 // Low priority in second half of PQ in order of being loaded
-void insertTrain(int newID, char *newPriority){
+void insertTrain(int newID, char *newPriority, int newLoadTime){
 	PQ *newTrain = (PQ *)malloc(sizeof(PQ));
 	if(newTrain == NULL){
 		exit(1);
@@ -48,32 +49,53 @@ void insertTrain(int newID, char *newPriority){
 
 	newTrain->id = newID;
 	newTrain->priority = newPriority;
+	newTrain->loadTime = newLoadTime;
 
 	PQ *p;
 	p = head;
 
-	if(head == NULL){
+	if(head == NULL){ // List is empty
 		newTrain->next = NULL;
 		head = newTrain;
 	}
-	else if(!strcmp(newTrain->priority, "East") || !strcmp(newTrain->priority, "West")){
-		while(p->next != NULL && strcmp(p->next->priority, "east") && strcmp(p->next->priority, "west")){
+	else if(!strcmp(newTrain->priority, "East") || !strcmp(newTrain->priority, "West")){ // Insert in high priority half
+		while(p->next != NULL && strcmp(p->next->priority, "east") && strcmp(p->next->priority, "west")){ // This needs to stop in the right place
+			if(newTrain->loadTime == p->loadTime){
+				if((newTrain->id - p->id) > 0){ // Check if we add this train to the right
+					if((newTrain->id - p->id) == 1){
+						break;
+					}
+					if((newTrain->loadTime == p->next->loadTime) && strcmp(p->next->priority, "east") && strcmp(p->next->priority, "west")){
+						if((newTrain->id - p->next->id) < 0){
+							break;
+						}
+						p = p->next;
+						continue;
+					}
+					else if(!strcmp(p->next->priority, "east") || !strcmp(p->next->priority, "west")){
+						break;
+					}
+				}
+				else{ // Check if we add this train to the left
+					// Insert infront
+				}
+			}
 			p = p->next;
 		}
 		newTrain->next = p->next;
 		p->next = newTrain;
 	}
-	else if(!strcmp(newTrain->priority, "east") || !strcmp(newTrain->priority, "west")){
-		newTrain->next = NULL;
+	else if(!strcmp(newTrain->priority, "east") || !strcmp(newTrain->priority, "west")){ // Insert in low priority half
+		newTrain->next = NULL; // May not be null after new logic for same loadTime's is implemented
 
-		while(p->next != NULL){
+		while(p->next != NULL){ // This needs to stop in the right place
 			p = p->next;
 		}
 		p->next = newTrain;
 
 	}
 	else{
-		printf("Train was scheduled wrong\n");
+		printf("This should never happen, check if input is correct\n");
 		exit(1);
 	}
 
@@ -140,7 +162,7 @@ void *trains(void *args){
 
 	// Lock PQ and insert into the queue because the train has loaded
 	pthread_mutex_lock(&data_struct);
-	insertTrain(t_cpy->id, t_cpy->priority);
+	insertTrain(t_cpy->id, t_cpy->priority, t_cpy->loadTime);
 
 	printf("Train %2d is ready to go %4s\n", t_cpy->id, t_cpy->priority);
 	pthread_mutex_unlock(&data_struct);
@@ -440,8 +462,6 @@ int main(int argc, char *argv[]){
 			}
 		}
 	}
-
-	//printf("MAIN FINISHED!!!\n");
 
 	free(cmd_in);
 	fclose(fp);
