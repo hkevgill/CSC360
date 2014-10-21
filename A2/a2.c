@@ -163,7 +163,7 @@ void *trains(void *args){
 	pthread_mutex_unlock(&track); // Unlock track
 
 	pthread_mutex_lock(&joiner);
-	usleep(10000);
+	usleep(1000); // Small delta delay
 	return ((void *)0);
 }
 
@@ -234,18 +234,25 @@ int main(int argc, char *argv[]){
 
 		if(pthread_mutex_trylock(&track) == 0){
 			if(head != NULL){
-				temp = head->id;
 				pthread_mutex_lock(&joiner);
+				temp = head->id;
+
 				pthread_cond_signal(&condArray[temp]);
+
 				pthread_mutex_unlock(&track);
-				deleteTrain(temp);
+
 				pthread_mutex_unlock(&data_struct);
+
 				pthread_mutex_unlock(&joiner);
+
 				pthread_join(thread[temp], NULL);
 				pthread_mutex_unlock(&joiner);
+
 				count2++;
 			}
 			else if(count2 == atoi(argv[2])){
+				pthread_mutex_unlock(&track);
+				pthread_mutex_unlock(&data_struct);
 				break;
 			}
 			else{
