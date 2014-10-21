@@ -57,7 +57,7 @@ void insertTrain(int newID, char *newPriority){
 		head = newTrain;
 	}
 	else if(!strcmp(newTrain->priority, "East") || !strcmp(newTrain->priority, "West")){
-		while(p->next != NULL && !strcmp(p->next->priority, "east") && !strcmp(p->next->priority, "west")){
+		while(p->next != NULL && strcmp(p->next->priority, "east") && strcmp(p->next->priority, "west")){
 			p = p->next;
 		}
 		newTrain->next = p->next;
@@ -73,7 +73,7 @@ void insertTrain(int newID, char *newPriority){
 
 	}
 	else{
-		printf("Train was scheduled wrong, break program");
+		printf("Train was scheduled wrong\n");
 		exit(1);
 	}
 
@@ -162,6 +162,12 @@ void *trains(void *args){
 
 	pthread_mutex_unlock(&track); // Unlock track
 
+	PQ *w;
+	for(w = head; w != NULL; w = w->next){
+		printf("%s:%d\n", w->priority, w->id);
+	}
+	sleep(1);
+
 	pthread_mutex_lock(&joiner);
 	usleep(1000); // Small delta delay
 	return ((void *)0);
@@ -226,7 +232,8 @@ int main(int argc, char *argv[]){
 
 	// SCHEDULE! WORK IN PROGRESS
 	int count2 = 0;
-
+	PQ *p;
+	char *lastPriority;
 	int temp;
 	for(;;){
 
@@ -236,6 +243,88 @@ int main(int argc, char *argv[]){
 			if(head != NULL){
 				pthread_mutex_lock(&joiner);
 				temp = head->id;
+				lastPriority = head->priority;
+
+				if(count2 == 0){ // Then this is the first train
+					for(p = head; p != NULL; p = p->next){ // Count amount of items in the list
+						if(!strcmp(p->priority, "East")){
+							temp = p->id;
+							lastPriority = p->priority;
+							break;
+						}
+					}
+				}
+				else{
+					if(!strcmp(lastPriority, "East")){
+						for(p = head; p != NULL; p = p->next){
+							if(!strcmp(p->priority, "west")){
+								temp = p->id;
+								lastPriority = p->priority;
+								break;
+							}
+						}
+						for(p = head; p != NULL; p = p->next){
+							if(!strcmp(p->priority, "West")){
+								temp = p->id;
+								lastPriority = p->priority;
+								break;
+							}
+						}
+						if(!strcmp(lastPriority, "west")){
+							for(p = head; p != NULL; p = p->next){
+								if(!strcmp(p->priority, "East") && (p->id != temp)){
+									temp = p->id;
+									lastPriority = p->priority;
+									break;
+								}
+							}
+						}
+					}
+					else if(!strcmp(lastPriority, "West")){
+						for(p = head; p != NULL; p = p->next){
+							if(!strcmp(p->priority, "east")){
+								temp = p->id;
+								lastPriority = p->priority;
+								break;
+							}
+						}
+						for(p = head; p != NULL; p = p->next){
+							if(!strcmp(p->priority, "East")){
+								temp = p->id;
+								lastPriority = p->priority;
+								break;
+							}
+						}
+						if(!strcmp(lastPriority, "east")){
+							for(p = head; p != NULL; p = p->next){
+								if(!strcmp(p->priority, "West") && (p->id != temp)){
+									temp = p->id;
+									lastPriority = p->priority;
+									break;
+								}
+							}
+						}
+					}
+					else if(!strcmp(lastPriority, "east")){// ALWAYS GOES IN HERE
+						for(p = head; p != NULL; p = p->next){
+							if(!strcmp(p->priority, "west")){
+								temp = p->id;
+								lastPriority = p->priority;
+								printf("_________________________________________________ %s\n", lastPriority);
+								break;
+							}
+						}
+					}
+					else if(!strcmp(lastPriority, "west")){
+						for(p = head; p != NULL; p = p->next){
+							if(!strcmp(p->priority, "east")){
+								temp = p->id;
+								lastPriority = p->priority;
+								break;
+							}
+						}
+					}
+				}
 
 				pthread_cond_signal(&condArray[temp]);
 
