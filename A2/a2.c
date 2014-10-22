@@ -54,13 +54,18 @@ void insertTrain(int newID, char *newPriority, int newLoadTime){
 	PQ *p;
 	p = head;
 
+	PQ *sudoHead;
+	sudoHead = head;
+
+	int front = 0;
+
 	if(head == NULL){ // List is empty
 		newTrain->next = NULL;
 		head = newTrain;
 	}
 	else if(!strcmp(newTrain->priority, "East") || !strcmp(newTrain->priority, "West")){ // Insert in high priority half
 		while(p->next != NULL && strcmp(p->next->priority, "east") && strcmp(p->next->priority, "west")){ // This needs to stop in the right place
-			if(newTrain->loadTime == p->loadTime){
+			if((newTrain->loadTime == p->loadTime) && strcmp(p->priority, "east") && strcmp(p->priority, "west")){
 				if((newTrain->id - p->id) > 0){ // Check if we add this train to the right
 					if((newTrain->id - p->id) == 1){
 						break;
@@ -69,6 +74,7 @@ void insertTrain(int newID, char *newPriority, int newLoadTime){
 						if((newTrain->id - p->next->id) < 0){
 							break;
 						}
+						sudoHead = p;
 						p = p->next;
 						continue;
 					}
@@ -78,20 +84,64 @@ void insertTrain(int newID, char *newPriority, int newLoadTime){
 				}
 				else{ // Check if we add this train to the left
 					// Insert infront
+					newTrain->next = sudoHead;
+					sudoHead = newTrain;
+					front = 1;
+					break;
+				}
+			}
+			sudoHead = p;
+			p = p->next;
+		}
+		if(front){
+			front = 0;
+		}
+		else{
+			newTrain->next = p->next;
+			p->next = newTrain;
+		}
+	}
+	else if(!strcmp(newTrain->priority, "east") || !strcmp(newTrain->priority, "west")){ // Insert in low priority half
+		// newTrain->next = NULL; // May not be null after new logic for same loadTime's is implemented
+
+		// Get it to the start of the low priority
+		while(p->next != NULL  && strcmp(p->priority, "east") && strcmp(p->priority, "west")){
+			sudoHead = p;
+			p = p->next;
+		}
+
+		while(p->next != NULL){ // This needs to stop in the right place
+			if((newTrain->loadTime == p->loadTime) && (!strcmp(p->priority, "east") || !strcmp(p->priority, "west"))){
+				if((newTrain->id - p->id) > 0){ // Check if we add this train to the right
+					if((newTrain->id - p->id) == 1){
+						break;
+					}
+					if(newTrain->loadTime == p->next->loadTime){
+						if((newTrain->id - p->next->id) < 0){
+							break;
+						}
+						sudoHead = p;
+						p = p->next;
+						continue;
+					}
+				}
+				else{ // Check if we need to add train to the left
+					// Insert front
+					front = 1;
+					newTrain->next = sudoHead;
+					sudoHead = newTrain;
+					break;
 				}
 			}
 			p = p->next;
 		}
-		newTrain->next = p->next;
-		p->next = newTrain;
-	}
-	else if(!strcmp(newTrain->priority, "east") || !strcmp(newTrain->priority, "west")){ // Insert in low priority half
-		newTrain->next = NULL; // May not be null after new logic for same loadTime's is implemented
-
-		while(p->next != NULL){ // This needs to stop in the right place
-			p = p->next;
+		if(front){
+			front = 0;
 		}
-		p->next = newTrain;
+		else{
+			newTrain->next = p->next;
+			p->next = newTrain;
+		}
 
 	}
 	else{
@@ -183,6 +233,12 @@ void *trains(void *args){
 	pthread_mutex_unlock(&data_struct);
 
 	pthread_mutex_unlock(&track); // Unlock track
+
+	// PQ *w;
+
+	// for(w = head; w != NULL; w = w->next){
+	// 	printf("%s: %d\n", w->priority, w->id);
+	// }
 
 	pthread_mutex_lock(&joiner);
 	usleep(1000); // Small delta delay
