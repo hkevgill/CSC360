@@ -17,8 +17,6 @@ pthread_mutex_t joiner = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_cond_t *condArray; // Global array of condition variables
 
-//int trainsWaiting = 0;
-
 // Struct for each thread
 typedef struct train{
 	int loadTime;
@@ -39,8 +37,8 @@ typedef struct PQueue{
 PQ *head = NULL; // Initialize head to null
 
 // Insert the train into the PQ, in a special way:
-// High priority in first half of PQ in order of being loaded
-// Low priority in second half of PQ in order of being loaded
+// High priority in first half of PQ in order of being loaded unless load time is the same, then in order of text file
+// Low priority in second half of PQ in order of being loaded unless load time is the same, then in order of text file
 void insertTrain(int newID, char *newPriority, int newLoadTime){
 	PQ *newTrain = (PQ *)malloc(sizeof(PQ));
 	if(newTrain == NULL){
@@ -102,7 +100,6 @@ void insertTrain(int newID, char *newPriority, int newLoadTime){
 		}
 	}
 	else if(!strcmp(newTrain->priority, "east") || !strcmp(newTrain->priority, "west")){ // Insert in low priority half
-		// newTrain->next = NULL; // May not be null after new logic for same loadTime's is implemented
 
 		// Get it to the start of the low priority
 		while(p->next != NULL  && strcmp(p->priority, "east") && strcmp(p->priority, "west")){
@@ -234,12 +231,6 @@ void *trains(void *args){
 
 	pthread_mutex_unlock(&track); // Unlock track
 
-	// PQ *w;
-
-	// for(w = head; w != NULL; w = w->next){
-	// 	printf("%s: %d\n", w->priority, w->id);
-	// }
-
 	pthread_mutex_lock(&joiner);
 	usleep(1000); // Small delta delay
 	return ((void *)0);
@@ -250,6 +241,7 @@ void *trains(void *args){
 // Sends a signal to that thread
 int main(int argc, char *argv[]){
 
+	// Variables
 	condArray = (pthread_cond_t *)malloc(sizeof(pthread_cond_t)*atoi(argv[2])); // Allocate space for global convar array
 
 	char ReadLine[MAXLINE];
@@ -271,8 +263,9 @@ int main(int argc, char *argv[]){
 		return 0;
 	}
 
-	// FIGURE OUT WHAT ORDER EVERYTHING IS SCHEDULED HERE
-
+	// Create n threads and n condition variables
+	// A thread will be a train
+	// Each train has a convar that will be signalled by the dispatcher
 	pthread_t *thread = (pthread_t *)malloc(sizeof(pthread_t)*atoi(argv[2])); // Array of threads
 	pthread_cond_t *c = (pthread_cond_t *)malloc(sizeof(pthread_cond_t)*atoi(argv[2])); // Array of convars
 
@@ -302,11 +295,13 @@ int main(int argc, char *argv[]){
 		}
 	}
 
-	// SCHEDULE! WORK IN PROGRESS
-	int count2 = 0;
-	PQ *p;
-	char *lastPriority;
-	int temp;
+	// Schedule the trains based on the scheduling algorithm given in P2
+	int count2 = 0; // The number of trains that have finished
+	PQ *p; // Train pointer for PQ
+	char *lastPriority; // Priority of last scheduled train
+	int temp; // The train to be scheduled (determined below)
+
+	// Dispatcher loop, it ends when n trains specified in the command line have finished
 	for(;;){
 
 		pthread_mutex_lock(&data_struct);
@@ -314,8 +309,6 @@ int main(int argc, char *argv[]){
 		if(pthread_mutex_trylock(&track) == 0){
 			if(head != NULL){
 				pthread_mutex_lock(&joiner);
-				// temp = head->id;
-				// lastPriority = head->priority;
 
 				if(count2 == 0){ // Then this is the first train
 					temp = head->id;
@@ -493,25 +486,25 @@ int main(int argc, char *argv[]){
 					}
 				}
 
-				pthread_cond_signal(&condArray[temp]);
+				pthread_cond_signal(&condArray[temp]); // Signal the train to go
 
-				pthread_mutex_unlock(&track);
+				pthread_mutex_unlock(&track); // Unlock track so train signalled can take the track
 
-				pthread_mutex_unlock(&data_struct);
+				pthread_mutex_unlock(&data_struct); // Unlock data structure so trains can insert/delete
 
-				pthread_mutex_unlock(&joiner);
+				pthread_mutex_unlock(&joiner); // Dispatcher is now ready to wait for a join
 
-				pthread_join(thread[temp], NULL);
-				pthread_mutex_unlock(&joiner);
+				pthread_join(thread[temp], NULL); // Wait for signalled train to join
+				pthread_mutex_unlock(&joiner); // Unlock this because each train must lock it before they finish
 
 				count2++;
 			}
-			else if(count2 == atoi(argv[2])){
+			else if(count2 == atoi(argv[2])){ // Check if all trains have finished
 				pthread_mutex_unlock(&track);
 				pthread_mutex_unlock(&data_struct);
 				break;
 			}
-			else{
+			else{ // Nothing to be scheduled, unlock mutex's
 				pthread_mutex_unlock(&track);
 				pthread_mutex_unlock(&data_struct);
 				continue;
@@ -519,6 +512,7 @@ int main(int argc, char *argv[]){
 		}
 	}
 
+	// Free memory and exit
 	free(cmd_in);
 	fclose(fp);
 	return 0;
