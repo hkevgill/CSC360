@@ -1,3 +1,9 @@
+// Hardeep Kevin Gill
+// V00748073
+// Assignment 2
+// CSC 360 Fall 2014
+// Prof: Dr. Pan
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,7 +19,7 @@ FILE *fp; // File pointer
 
 pthread_mutex_t track = PTHREAD_MUTEX_INITIALIZER; // Track mutex
 pthread_mutex_t data_struct = PTHREAD_MUTEX_INITIALIZER; // PQ mutex
-pthread_mutex_t joiner = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t joiner = PTHREAD_MUTEX_INITIALIZER; // Makes sure main is at pthread_join
 
 pthread_cond_t *condArray; // Global array of condition variables
 
@@ -35,6 +41,15 @@ typedef struct PQueue{
 }PQ;
 
 PQ *head = NULL; // Initialize head to null
+
+
+// Function prototypes
+void insertTrain(int newID, char *newPriority, int newLoadTime);
+void deleteTrain(int newID);
+void chomp(char line[]);
+void parse(char ReadLine[MAXLINE], char *tokens[1024], char *cmd_in);
+void *trains(void *args);
+
 
 // Insert the train into the PQ, in a special way:
 // High priority in first half of PQ in order of being loaded unless load time is the same, then in order of text file
@@ -82,17 +97,45 @@ void insertTrain(int newID, char *newPriority, int newLoadTime){
 				}
 				else{ // Check if we add this train to the left
 					// Insert infront
-					newTrain->next = sudoHead;
-					sudoHead = newTrain;
 					front = 1;
+					if(sudoHead == p){
+						newTrain->next = p;
+						head = newTrain;
+					}
+					else{
+						newTrain->next = p;
+						sudoHead->next = newTrain;
+					}
 					break;
 				}
 			}
 			sudoHead = p;
 			p = p->next;
 		}
-		if(front){
+		if((newTrain->loadTime == p->loadTime) && (!strcmp(p->priority, "East") || !strcmp(p->priority, "West")) && ((newTrain->id - p->id) < 0)){
+			if(sudoHead == p){
+				newTrain->next = p;
+				head = newTrain;
+			}
+			else{
+				newTrain->next = p;
+				sudoHead->next = newTrain;
+			}
+		}
+		else if(front){
 			front = 0;
+		}
+		else if(p->next == NULL && head != NULL && (sudoHead == p)){
+			newTrain->next = NULL;
+			p->next = newTrain; 
+		}
+		else if(p->next == NULL && head != NULL && (sudoHead != p)){
+			newTrain->next = p->next;
+			p->next = newTrain;
+		}
+		else if((!strcmp(p->priority, "east") || !strcmp(p->priority, "west"))){
+			newTrain->next = p;
+			head = newTrain;
 		}
 		else{
 			newTrain->next = p->next;
@@ -125,17 +168,41 @@ void insertTrain(int newID, char *newPriority, int newLoadTime){
 				else{ // Check if we need to add train to the left
 					// Insert front
 					front = 1;
-					newTrain->next = sudoHead;
-					sudoHead = newTrain;
+					if(head == p){
+						newTrain->next = p;
+						head = newTrain;
+					}
+					else{
+						newTrain->next = p;
+						sudoHead->next = newTrain;
+					}
 					break;
 				}
 			}
+			sudoHead = p;
 			p = p->next;
 		}
-		if(front){
+
+		if((newTrain->loadTime == p->loadTime) && (!strcmp(p->priority, "east") || !strcmp(p->priority, "west")) && ((newTrain->id - p->id) < 0)){
+			if(sudoHead == p){
+				newTrain->next = p;
+				head = newTrain;
+			}
+			else{
+				newTrain->next = p;
+				sudoHead->next = newTrain;
+			}
+		}
+		else if(front){
 			front = 0;
 		}
+		else if(p->next == NULL && head != NULL){
+			newTrain->next = NULL;
+			p->next = newTrain;
+		}
 		else{
+			// newTrain->next = p;
+			// sudoHead->next = newTrain;
 			newTrain->next = p->next;
 			p->next = newTrain;
 		}
@@ -145,6 +212,7 @@ void insertTrain(int newID, char *newPriority, int newLoadTime){
 		printf("This should never happen, check if input is correct\n");
 		exit(1);
 	}
+	front = 0;
 
 }
 
@@ -212,6 +280,7 @@ void *trains(void *args){
 	insertTrain(t_cpy->id, t_cpy->priority, t_cpy->loadTime);
 
 	printf("Train %2d is ready to go %4s\n", t_cpy->id, t_cpy->priority);
+
 	pthread_mutex_unlock(&data_struct);
 
 	pthread_mutex_lock(&track); // Lock track
@@ -232,18 +301,18 @@ void *trains(void *args){
 	pthread_mutex_unlock(&track); // Unlock track
 
 	pthread_mutex_lock(&joiner);
-	usleep(1000); // Small delta delay
+	usleep(20000); // Small delta delay
 	return ((void *)0);
 }
 
 // Main scheduling thread
+// Starts all the threads (trains)
 // Figures out who goes next
 // Sends a signal to that thread
 int main(int argc, char *argv[]){
 
 	// Variables
 	condArray = (pthread_cond_t *)malloc(sizeof(pthread_cond_t)*atoi(argv[2])); // Allocate space for global convar array
-
 	char ReadLine[MAXLINE];
 	char *tokens[1024];
 	char *cmd_in = (char*) malloc(sizeof(char) * 100);
@@ -306,14 +375,14 @@ int main(int argc, char *argv[]){
 
 		pthread_mutex_lock(&data_struct);
 
-		if(pthread_mutex_trylock(&track) == 0){
+		if(pthread_mutex_trylock(&track) == 0){ // Try and lock track, if it succeeds, then schedule something
 			if(head != NULL){
-				pthread_mutex_lock(&joiner);
+				pthread_mutex_lock(&joiner); // Makes sure we get to pthread_join before thread finishes
 
-				if(count2 == 0){ // Then this is the first train
+				if(count2 == 0){ // Then this is the first train and we should try to schedule E, then W, then e, then w
 					temp = head->id;
 					lastPriority = head->priority;
-					for(p = head; p != NULL; p = p->next){ // Count amount of items in the list
+					for(p = head; p != NULL; p = p->next){
 						if(!strcmp(p->priority, "East")){
 							temp = p->id;
 							lastPriority = p->priority;
@@ -339,7 +408,7 @@ int main(int argc, char *argv[]){
 						}
 					}
 				}
-				else{
+				else{ // Not the first train, continue as scheduling algorithm says
 					if(!strcmp(lastPriority, "East") || !strcmp(lastPriority, "West")){ // Then last one was High Priority
 						if(!strcmp(lastPriority, "East")){ // Last one was High priority East
 							for(p = head; p != NULL; p = p->next){
@@ -486,6 +555,8 @@ int main(int argc, char *argv[]){
 					}
 				}
 
+				// Now temp is the train that can go
+
 				pthread_cond_signal(&condArray[temp]); // Signal the train to go
 
 				pthread_mutex_unlock(&track); // Unlock track so train signalled can take the track
@@ -497,16 +568,18 @@ int main(int argc, char *argv[]){
 				pthread_join(thread[temp], NULL); // Wait for signalled train to join
 				pthread_mutex_unlock(&joiner); // Unlock this because each train must lock it before they finish
 
-				count2++;
+				count2++; // Increment the number of trains that has finished
 			}
-			else if(count2 == atoi(argv[2])){ // Check if all trains have finished
+			else if(count2 == atoi(argv[2])){ // Check if all trains have finished, and if so, end program.
 				pthread_mutex_unlock(&track);
 				pthread_mutex_unlock(&data_struct);
+				pthread_mutex_unlock(&joiner);
 				break;
 			}
-			else{ // Nothing to be scheduled, unlock mutex's
+			else{ // Nothing to be scheduled, unlock mutex's and continue
 				pthread_mutex_unlock(&track);
 				pthread_mutex_unlock(&data_struct);
+				pthread_mutex_unlock(&joiner);
 				continue;
 			}
 		}
