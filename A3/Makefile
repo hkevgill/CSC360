@@ -2,7 +2,7 @@
 all: diskinfo
 
 a2: diskinfo.c
-	gcc -Wall diskinfo.c -o a2
+	gcc -Wall diskinfo.c -o diskinfo
 
 .PHONY clean:
 clean:
