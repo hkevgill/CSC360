@@ -62,6 +62,60 @@ int fatStart(char *mmap){
 	return value;
 }
 
+int fatBlocks(char *mmap){
+	unsigned char *temp = malloc(sizeof(unsigned char));
+
+	int i;
+	int j = 3;
+	int value = 0;
+
+	for(i = 18; i < 22; i++){
+		*temp = mmap[i];
+		value += ((*temp)<<(8*j));
+		j--;
+	}
+
+	free(temp);
+
+	return value;
+}
+
+int getRootStart(char *mmap){
+	unsigned char *temp = malloc(sizeof(unsigned char));
+
+	int i;
+	int j = 3;
+	int value = 0;
+
+	for(i = 22; i < 26; i++){
+		*temp = mmap[i];
+		value += ((*temp)<<(8*j));
+		j--;
+	}
+
+	free(temp);
+
+	return value;
+}
+
+int getRootBlocks(char *mmap){
+	unsigned char *temp = malloc(sizeof(unsigned char));
+
+	int i;
+	int j = 3;
+	int value = 0;
+
+	for(i = 26; i < 30; i++){
+		*temp = mmap[i];
+		value += ((*temp)<<(8*j));
+		j--;
+	}
+
+	free(temp);
+
+	return value;
+}
+
 int main(int argc, char *argv[]){
 	// FILE *fp; // File pointer
 	int fd; // File descriptor
@@ -81,6 +135,13 @@ int main(int argc, char *argv[]){
 		printf("Block size: %d\n", size);
 		printf("Block count: %d\n", getBlockCount(p));
 		printf("FAT starts: %d\n", fatStart(p));
+		printf("FAT blocks: %d\n", fatBlocks(p));
+		printf("Root directory start: %d\n", getRootStart(p));
+		printf("Root directory blocks: %d\n", getRootBlocks(p));
+
+		printf("\n");
+
+		printf("Fat information:\n");
 	}
 
 	return 0;
