@@ -116,6 +116,121 @@ int getRootBlocks(char *mmap){
 	return value;
 }
 
+int getFreeBlocks(char *mmap){
+	int i;
+	int freeBlocks = 0;
+	int startFat = fatStart(mmap);
+	int blockSize = getBlockSize(mmap);
+	int numBlocks = fatBlocks(mmap);
+	int startIndex = (startFat*blockSize);
+	int endIndex = (startIndex + (blockSize*numBlocks));
+
+	int value = 0;
+
+	// printf("%d\n", startIndex);
+	// printf("%d\n", endIndex);
+
+	unsigned char *temp1 = malloc(sizeof(unsigned char));
+	unsigned char *temp2 = malloc(sizeof(unsigned char));
+	unsigned char *temp3 = malloc(sizeof(unsigned char));
+	unsigned char *temp4 = malloc(sizeof(unsigned char));
+
+	for(i = startIndex; i < endIndex; i = i + 4){
+		*temp1 = mmap[i];
+		*temp2 = mmap[i+1];
+		*temp3 = mmap[i+2];
+		*temp4 = mmap[i+3];
+
+		value = ((*temp1)<<24) + ((*temp2)<<16) + ((*temp3)<<8) + (*temp4);
+		if(value == 0){
+			freeBlocks++;
+		}
+	}
+
+	free(temp1);
+	free(temp2);
+	free(temp3);
+	free(temp4);
+
+	return freeBlocks;
+}
+
+int getReservedBlocks(char *mmap){
+	int i;
+	int reservedBlocks = 0;
+	int startFat = fatStart(mmap);
+	int blockSize = getBlockSize(mmap);
+	int numBlocks = fatBlocks(mmap);
+	int startIndex = (startFat*blockSize);
+	int endIndex = (startIndex + (blockSize*numBlocks));
+
+	int value = 0;
+
+	// printf("%d\n", startIndex);
+	// printf("%d\n", endIndex);
+
+	unsigned char *temp1 = malloc(sizeof(unsigned char));
+	unsigned char *temp2 = malloc(sizeof(unsigned char));
+	unsigned char *temp3 = malloc(sizeof(unsigned char));
+	unsigned char *temp4 = malloc(sizeof(unsigned char));
+
+	for(i = startIndex; i < endIndex; i = i + 4){
+		*temp1 = mmap[i];
+		*temp2 = mmap[i+1];
+		*temp3 = mmap[i+2];
+		*temp4 = mmap[i+3];
+
+		value = ((*temp1)<<24) + ((*temp2)<<16) + ((*temp3)<<8) + (*temp4);
+		if(value == 1){
+			reservedBlocks++;
+		}
+	}
+
+	free(temp1);
+	free(temp2);
+	free(temp3);
+	free(temp4);
+
+	return reservedBlocks;
+}
+
+int getAllocatedBlocks(char *mmap){
+	int allocatedBlocks = 0;
+
+	int i;
+	int startFat = fatStart(mmap);
+	int blockSize = getBlockSize(mmap);
+	int numBlocks = fatBlocks(mmap);
+	int startIndex = (startFat*blockSize);
+	int endIndex = (startIndex + (blockSize*numBlocks));
+
+	unsigned int value = 0;
+
+	unsigned char *temp1 = malloc(sizeof(unsigned char));
+	unsigned char *temp2 = malloc(sizeof(unsigned char));
+	unsigned char *temp3 = malloc(sizeof(unsigned char));
+	unsigned char *temp4 = malloc(sizeof(unsigned char));
+
+	for(i = startIndex; i < endIndex; i = i + 4){
+		*temp1 = mmap[i];
+		*temp2 = mmap[i+1];
+		*temp3 = mmap[i+2];
+		*temp4 = mmap[i+3];
+
+		value = ((*temp1)<<24) + ((*temp2)<<16) + ((*temp3)<<8) + (*temp4);
+		if(((value <= 0xFFFFFF00) && (value >= 2)) || (value == 0xFFFFFFFF)){
+			allocatedBlocks++;
+		}
+	}
+
+	free(temp1);
+	free(temp2);
+	free(temp3);
+	free(temp4);
+
+	return allocatedBlocks;
+}
+
 int main(int argc, char *argv[]){
 	// FILE *fp; // File pointer
 	int fd; // File descriptor
@@ -123,8 +238,13 @@ int main(int argc, char *argv[]){
 	char *p; // Pointer to file
 	int size;
 
+	if(argc != 2){
+		printf("usage: %s filename\n", argv[0]);
+		return 0;
+	}
+
 	// fd is now the file descriptor for the opened file
-	if((fd=open("test.img", O_RDONLY))){
+	if((fd=open(argv[1], O_RDONLY))){
 		// fstat returns information about the file into sf
 		fstat(fd, &sf);
 
@@ -142,6 +262,9 @@ int main(int argc, char *argv[]){
 		printf("\n");
 
 		printf("Fat information:\n");
+		printf("Free Blocks: %d\n", getFreeBlocks(p));
+		printf("Reserved Blocks:%d\n", getReservedBlocks(p));
+		printf("Allocated Blocks:%d\n", getAllocatedBlocks(p));
 	}
 
 	return 0;
