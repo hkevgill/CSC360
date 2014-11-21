@@ -291,6 +291,11 @@ void listFiles(char *mmap){
         }
     }
 
+    free(root_entry);
+    free(file_name_bytes);
+    free(file_create_bytes);
+    free(file_size_bytes);
+
 }
 
 int main(int argc, char *argv[]){
