@@ -1,8 +1,11 @@
 .phony all:
-all: diskinfo
+all: diskinfo disklist
 
-a2: diskinfo.c
+diskinfo: diskinfo.c
 	gcc -Wall diskinfo.c -o diskinfo
+
+disklist: disklist.c
+	gcc -Wall disklist.c -o disklist
 
 .PHONY clean:
 clean:
