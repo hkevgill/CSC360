@@ -254,14 +254,14 @@ void listFiles(char *mmap){
     for(i = 0; i < numRootBlocks; i++){ // Loop through the number of blocks in the root directory
         for(j = 0; j < 8; j++){ // Each directory is 64B so there are 8 directory entries per block
             root_entry = memcpy(root_entry, mmap+offset+block_size*i+length*j, length);
-            if((root_entry[0] & 0x03) == 0x03){
+            if(((root_entry[0] & 0x03) == 0x03) || (root_entry[0] & 0x05) == 0x05){
 
                 // Gets whether it is an F or a D
-                if((root_entry[0] >> 1) && 0x01){ // If bit 1 is set (to 1) then it is a file
+                if((root_entry[0] >> 1) & 0x01){ // If bit 1 is set (to 1) then it is a file
                     printf("%s ", f);
 
                 }
-                else if((root_entry[0] >> 2) && 0x01){ // If bit 2 is set then it is a directory
+                else if((root_entry[0] >> 2) & 0x01){ // If bit 2 is set then it is a directory
                     printf("%s ", d);
                 }
 
