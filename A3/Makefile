@@ -1,12 +1,9 @@
 .phony all:
-all: diskinfo disklist
+all: 
 
-diskinfo: diskinfo.c
-	gcc -Wall diskinfo.c -o diskinfo
-
-disklist: disklist.c
-	gcc -Wall disklist.c -o disklist
+	gcc -Wall -DPART1 a3.c -o diskinfo
+	gcc -Wall -DPART2 a3.c -o disklist
 
 .PHONY clean:
 clean:
-	-rm -rf *.o *.exe
+	-rm diskinfo disklist
