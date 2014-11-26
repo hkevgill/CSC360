@@ -7,4 +7,4 @@ all:
 
 .PHONY clean:
 clean:
-	-rm diskinfo disklist
+	-rm diskinfo disklist diskget

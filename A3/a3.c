@@ -350,6 +350,8 @@ void findFile(char *mmap, char *fileName){
     int numOfBlocks = 0; // Number of blocks the file takes up
     int fileSize = 0; // Size of the file
 
+    int found = 0; // boolean to see if file was found
+
     int numRootBlocks = getRootBlocks(mmap); // Number of blocks in root directory
 
     for(i = 0; i < numRootBlocks; i++){ // Loop through the number of blocks in the root directory
@@ -363,6 +365,7 @@ void findFile(char *mmap, char *fileName){
 	                // Gets the name of the file
 	                file_name_bytes = memcpy(file_name_bytes, root_entry + 27, 31);
 	                if(!strcmp(fileName, file_name_bytes)){ // Check if file is in filesystem
+	                	found = 1;
 
 	                	starting_block = memcpy(starting_block, root_entry + 1, 4); // Starting block of the file
 	                	start = (starting_block[0] << 24) + (starting_block[1] << 16) + (starting_block[2] << 8) + starting_block[3];
@@ -379,6 +382,10 @@ void findFile(char *mmap, char *fileName){
             	}
             }
         }
+    }
+
+    if(found == 0){
+    	printf("File not found\n");
     }
 
     free(root_entry);
