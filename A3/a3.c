@@ -483,6 +483,24 @@ int main(int argc, char *argv[]){
 
 		return 0;
 	#elif defined(PART4)
+		int fd; // File descriptor
+	    struct stat sf; // struct stat holds information about a file
+	    char *p; // Pointer to file
+
+	    if(argc != 3){
+	        printf("usage: %s filename\n", argv[0]);
+	        return 0;
+	    }
+
+	    if((fd=open(argv[1], O_RDONLY))){
+	        // fstat returns information about the file into sf
+	        fstat(fd, &sf);
+
+	        p = mmap(NULL, sf.st_size, PROT_READ, MAP_SHARED, fd, 0);
+
+	        printf("Part 4 being implemented\n");
+
+	    }
 
 		return 0;
 	#else
