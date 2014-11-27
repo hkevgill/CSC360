@@ -330,6 +330,8 @@ void getFile(char *mmap, int start, char *fileName, int numOfBlocks, int fileSiz
 		// printf("%d\n", start);
 	}
 
+	fclose(fp);
+
 }
 
 void findFile(char *mmap, char *fileName){
@@ -484,6 +486,7 @@ int main(int argc, char *argv[]){
 		return 0;
 	#elif defined(PART4)
 		int fd; // File descriptor
+		FILE *fp;
 	    struct stat sf; // struct stat holds information about a file
 	    char *p; // Pointer to file
 
@@ -498,7 +501,18 @@ int main(int argc, char *argv[]){
 
 	        p = mmap(NULL, sf.st_size, PROT_READ, MAP_SHARED, fd, 0);
 
+			fp = fopen(argv[2], "r");
+			if(fp){
+
+			}
+			else{
+				printf("File not found\n");
+				return 0;
+			}
+
 	        printf("Part 4 being implemented\n");
+
+	        fclose(fp);
 
 	    }
 
