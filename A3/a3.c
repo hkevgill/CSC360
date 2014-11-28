@@ -327,7 +327,6 @@ void getFile(char *mmap, int start, char *fileName, int numOfBlocks, int fileSiz
 
 		index = (blockSize*startFat) + (start*4);
 		start = ((*temp1)<<24) + ((*temp2)<<16) + ((*temp3)<<8) + (*temp4);
-		// printf("%d\n", start);
 	}
 
 	fclose(fp);
@@ -394,6 +393,47 @@ void findFile(char *mmap, char *fileName){
     free(file_name_bytes);
     free(file_create_bytes);
     free(file_size_bytes);
+
+}
+
+void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap){
+	char modifyTime[200]; // Will hold modify time
+	char createTime[200]; // Will hold create time
+
+	// Get file size
+	int fileSize = (int)sf.st_size;
+
+	// Calculate number of blocks
+	int block_size = getBlockSize(mmap);
+	int numOfBlocks = fileSize / block_size;
+	if((fileSize % block_size) != 0){
+		numOfBlocks = numOfBlocks + 1;
+	}
+
+	// Get times
+	time_t mt = sf.st_mtime; // modify time
+	time_t ct = sf.st_ctime; // Create time
+	struct tm *tm;
+	struct tm *tm1;
+
+	// Get modify time in local time
+	tm = localtime(&mt);
+	strftime(modifyTime, sizeof(modifyTime), "%Y%m%d%H%M%S", tm);
+
+	// Get create time in local time
+	tm1 = localtime(&ct);
+	strftime(createTime, sizeof(createTime), "%Y%m%d%H%M%S", tm1);
+
+	printf("filename: %s\n", fileName);
+	printf("filesize: %d\n", fileSize);
+	printf("number of blocks: %d\n", numOfBlocks);
+	printf("modify time: %s\n", modifyTime);
+	printf("create time: %s\n", createTime);
+
+
+
+	// Writes all of fp to disk. Don't need to do endian translation except when copying to FAT, and root dir.
+	// fwrite(fp, 1, 2560, disk);
 
 }
 
@@ -484,42 +524,54 @@ int main(int argc, char *argv[]){
 	    }
 
 		return 0;
+
 	#elif defined(PART4)
-		int fd; // File descriptor
+		int fd, fd2; // File descriptor
+		struct stat sf, sf2; // struct stat holds information about a file
 		FILE *fp;
-	    struct stat sf; // struct stat holds information about a file
-	    char *p; // Pointer to file
+		FILE *disk;
+		char *p; // Pointer to file
 
 	    if(argc != 3){
 	        printf("usage: %s filename\n", argv[0]);
 	        return 0;
 	    }
 
-	    if((fd=open(argv[1], O_RDONLY))){
+	    // fd is now the file descriptor for the opened file
+	    if((fd=open(argv[2], O_RDONLY))){
 	        // fstat returns information about the file into sf
 	        fstat(fd, &sf);
 
-	        p = mmap(NULL, sf.st_size, PROT_READ, MAP_SHARED, fd, 0);
+	        if((fd2=open(argv[1], O_RDONLY))){
 
-			fp = fopen(argv[2], "r");
-			if(fp){
+	        	fstat(fd2, &sf2);
 
-			}
-			else{
-				printf("File not found\n");
-				return 0;
-			}
+		        p = mmap(NULL, sf2.st_size, PROT_READ, MAP_SHARED, fd2, 0);
 
-	        printf("Part 4 being implemented\n");
+				fp = fopen(argv[2], "r");
+				if(fp){
+					disk = fopen(argv[1], "r+");
+					putFile(fp, disk, sf, argv[2], p);
+				}
+				else{
+					printf("File not found\n");
+					exit(0);
+				}
 
-	        fclose(fp);
+		        fclose(fp);
 
-	    }
+	    	}
+
+    	}
 
 		return 0;
+
 	#else
+
 		printf("Error\n");
+
 		return 0;
+
 	#endif
 
 }
