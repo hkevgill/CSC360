@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
+#include <arpa/inet.h>
 
 #define FILESIZE 4
 
@@ -329,6 +330,11 @@ void getFile(char *mmap, int start, char *fileName, int numOfBlocks, int fileSiz
 		start = ((*temp1)<<24) + ((*temp2)<<16) + ((*temp3)<<8) + (*temp4);
 	}
 
+	free(temp1);
+	free(temp2);
+	free(temp3);
+	free(temp4);
+
 	fclose(fp);
 
 }
@@ -399,16 +405,39 @@ void findFile(char *mmap, char *fileName){
 void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap){
 	char modifyTime[200]; // Will hold modify time
 	char createTime[200]; // Will hold create time
+	int block_size = getBlockSize(mmap);
+	unsigned long unused = 0xFFFFFFFFFFFF; // Unused Byte for Root Dir
+	int statusByte = 0x03; // Status byte for Root Dir
+	int startFat = fatStart(mmap);
+	int i,j; // Iterators
+	int count = 0; // Counts free blocks in FAT
+	int numRootBlocks = getRootBlocks(mmap); // Number of blocks in root directory
+	int length = 64; // Length of an entry in Root Dir
+	char *root_entry = (char *)malloc(sizeof(char) * length); // Holds the 64B of the entry in Root Dir
+	int offset = getRootStart(mmap) * block_size; // Where Root Directory starts
+
+	int numBlocks = fatBlocks(mmap);
+	int startIndex = (startFat*block_size);
+	int endIndex = (startIndex + (block_size*numBlocks));
+	int value = 0;
+	unsigned int value1 = 0;
+
+	unsigned char *temp1 = malloc(sizeof(unsigned char));
+	unsigned char *temp2 = malloc(sizeof(unsigned char));
+	unsigned char *temp3 = malloc(sizeof(unsigned char));
+	unsigned char *temp4 = malloc(sizeof(unsigned char));
 
 	// Get file size
 	int fileSize = (int)sf.st_size;
 
 	// Calculate number of blocks
-	int block_size = getBlockSize(mmap);
 	int numOfBlocks = fileSize / block_size;
 	if((fileSize % block_size) != 0){
 		numOfBlocks = numOfBlocks + 1;
 	}
+
+	unsigned int FATindices[numOfBlocks];
+	unsigned int convertedFAT[numOfBlocks];
 
 	// Get times
 	time_t mt = sf.st_mtime; // modify time
@@ -424,16 +453,59 @@ void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap){
 	tm1 = localtime(&ct);
 	strftime(createTime, sizeof(createTime), "%Y%m%d%H%M%S", tm1);
 
-	printf("filename: %s\n", fileName);
-	printf("filesize: %d\n", fileSize);
-	printf("number of blocks: %d\n", numOfBlocks);
-	printf("modify time: %s\n", modifyTime);
-	printf("create time: %s\n", createTime);
+	// Find available spots in FAT and store them in FATindices
+	for(i = startIndex; i < endIndex; i = i + 4){
+		*temp1 = mmap[i];
+		*temp2 = mmap[i+1];
+		*temp3 = mmap[i+2];
+		*temp4 = mmap[i+3];
 
+		value = ((*temp1)<<24) + ((*temp2)<<16) + ((*temp3)<<8) + (*temp4);
+		if(value == 0){
+			FATindices[count] = i;
+			count++;
+			if(count == numOfBlocks){
+				break;
+			}
+		}
+	}
 
+	// Calculate Start block for Root Directory
+	int starting_block = FATindices[0];
+	starting_block = starting_block - (startFat*block_size);
+	starting_block = starting_block/4;
+
+	// Correct Endian so we can write to img
+	for(i = 0; i < numOfBlocks; i++){
+		convertedFAT[i] = htonl(FATindices[i]);
+	}
+
+	// Write to img
+	for(i = 0; i < numOfBlocks - 1; i++){
+		fseek(disk, FATindices[i], SEEK_SET);
+		fwrite(&convertedFAT[i+1], 1, 4, disk);
+	}
+
+	// Go to Root Directory and add file info
+	for(i = 0; i < numRootBlocks; i++){ // Loop through the number of blocks in the root directory
+        for(j = 0; j < 8; j++){ // Each directory is 64B so there are 8 directory entries per block
+        	root_entry = memcpy(root_entry, mmap+offset+block_size*i+length*j, length);
+            if(root_entry[0] == 0x00){
+            	value1 = (int)((mmap+offset+block_size*i+length*j) - mmap);
+            	fseek(disk, value1, SEEK_SET);
+            	fwrite(&statusByte, 1, 1, disk);
+            }
+        }
+    }
 
 	// Writes all of fp to disk. Don't need to do endian translation except when copying to FAT, and root dir.
-	// fwrite(fp, 1, 2560, disk);
+	// fwrite(fp, 1, 10, disk);
+	// fwrite(&unused, 1, 6, disk);
+
+	free(temp1);
+	free(temp2);
+	free(temp3);
+	free(temp4);
 
 }
 
