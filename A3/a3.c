@@ -486,6 +486,46 @@ void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap){
 		fwrite(&convertedFAT[i+1], 1, 4, disk);
 	}
 
+
+	// Copy data to blocks
+	// First calculate actual block numbers
+	unsigned int actualBlocks[numOfBlocks];
+
+	for(i = 0; i < numOfBlocks; i++){
+		actualBlocks[i] = FATindices[i];
+	}
+
+	for(i = 0; i < numOfBlocks; i++){
+		actualBlocks[i] = actualBlocks[i] - (startFat*block_size);
+		actualBlocks[i] = actualBlocks[i]/4;
+	}
+
+	printf("%d\n", actualBlocks[0]);
+	printf("%d\n", actualBlocks[1]);
+	printf("%d\n", actualBlocks[2]);
+	printf("%d\n", actualBlocks[3]);
+	printf("%d\n", actualBlocks[4]);
+
+	int offs = 0;
+
+	for(i = 0; i < numOfBlocks; i++){
+		offs = actualBlocks[i]*block_size;
+		fseek(disk, offs, SEEK_SET);
+		fwrite(fp, 1, block_size, disk);
+		fseek(disk, 0, SEEK_SET);
+	}
+
+
+	// Correct Endian
+	int converted_starting_block = htonl(starting_block);
+	printf("%d\n", starting_block);
+	int converted_num_blocks = htonl(numOfBlocks);
+	printf("%d\n", numOfBlocks);
+	int converted_file_size = htonl(fileSize);
+	printf("%d\n", fileSize);
+	// int converted_create_time = htonl((int)createTime);
+	// int converted_modify_time = htonl((int)modifyTime);
+
 	// Go to Root Directory and add file info
 	for(i = 0; i < numRootBlocks; i++){ // Loop through the number of blocks in the root directory
         for(j = 0; j < 8; j++){ // Each directory is 64B so there are 8 directory entries per block
@@ -494,9 +534,18 @@ void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap){
             	value1 = (int)((mmap+offset+block_size*i+length*j) - mmap);
             	fseek(disk, value1, SEEK_SET);
             	fwrite(&statusByte, 1, 1, disk);
+            	fwrite(&converted_starting_block, 1, 4, disk);
+            	fwrite(&converted_num_blocks, 1, 4, disk);
+            	fwrite(&converted_file_size, 1, 4, disk);
+            	fwrite(modifyTime, 1, 7, disk);
+            	fwrite(createTime, 1, 7, disk);
+            	fwrite(fileName, 1, 31, disk);
+            	fwrite(&unused, 1, 6, disk);
+            	goto found_empty_root_dir;
             }
         }
     }
+    found_empty_root_dir:
 
 	// Writes all of fp to disk. Don't need to do endian translation except when copying to FAT, and root dir.
 	// fwrite(fp, 1, 10, disk);
