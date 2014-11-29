@@ -403,10 +403,8 @@ void findFile(char *mmap, char *fileName){
 }
 
 void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap){
-	char modifyTime[200]; // Will hold modify time
-	char createTime[200]; // Will hold create time
 	int block_size = getBlockSize(mmap);
-	unsigned long unused = 0xFFFFFFFFFFFF; // Unused Byte for Root Dir
+	unsigned long unused = 0xFFFFFFFFFF00; // Unused Byte for Root Dir
 	int statusByte = 0x03; // Status byte for Root Dir
 	int startFat = fatStart(mmap);
 	int i,j; // Iterators
@@ -439,19 +437,6 @@ void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap){
 	unsigned int FATindices[numOfBlocks];
 	unsigned int convertedFAT[numOfBlocks];
 
-	// Get times
-	time_t mt = sf.st_mtime; // modify time
-	time_t ct = sf.st_ctime; // Create time
-	struct tm *tm;
-	struct tm *tm1;
-
-	// Get modify time in local time
-	tm = localtime(&mt);
-	strftime(modifyTime, sizeof(modifyTime), "%Y%m%d%H%M%S", tm);
-
-	// Get create time in local time
-	tm1 = localtime(&ct);
-	strftime(createTime, sizeof(createTime), "%Y%m%d%H%M%S", tm1);
 
 	// Find available spots in FAT and store them in FATindices
 	for(i = startIndex; i < endIndex; i = i + 4){
@@ -523,8 +508,6 @@ void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap){
 	printf("%d\n", numOfBlocks);
 	int converted_file_size = htonl(fileSize);
 	printf("%d\n", fileSize);
-	// int converted_create_time = htonl((int)createTime);
-	// int converted_modify_time = htonl((int)modifyTime);
 
 	// Go to Root Directory and add file info
 	for(i = 0; i < numRootBlocks; i++){ // Loop through the number of blocks in the root directory
@@ -537,9 +520,73 @@ void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap){
             	fwrite(&converted_starting_block, 1, 4, disk);
             	fwrite(&converted_num_blocks, 1, 4, disk);
             	fwrite(&converted_file_size, 1, 4, disk);
-            	fwrite(modifyTime, 1, 7, disk);
-            	fwrite(createTime, 1, 7, disk);
-            	fwrite(fileName, 1, 31, disk);
+
+            	// Modify time
+				time_t mt = sf.st_mtime; // modify time
+				struct tm *tmModTime;
+				// Get modify time in local time
+				tmModTime = localtime(&mt);
+
+				unsigned int modYear = (tmModTime->tm_year)+1900;
+				unsigned int modMonth = (tmModTime->tm_mon) + 1;
+				unsigned int modDay = (tmModTime->tm_mday);
+				unsigned int modHour = (tmModTime->tm_hour);
+				unsigned int modMin = (tmModTime->tm_min);
+				unsigned int modSec = (tmModTime->tm_sec);
+
+				unsigned int mod_converted_year = (modYear>>8) | (modYear<<8);
+
+				// fwrite modify time here
+				fwrite(&mod_converted_year, 1, 2, disk);
+				fwrite(&modMonth, 1, 1, disk);
+				fwrite(&modDay, 1, 1, disk);
+				fwrite(&modHour, 1, 1, disk);
+				fwrite(&modMin, 1, 1, disk);
+				fwrite(&modSec, 1, 1, disk);
+
+
+
+				// Create time
+				time_t ct;
+				time(&ct);
+				struct tm *tmCreTime;
+
+				// Get create time in local time
+				tmCreTime = localtime(&ct);
+
+				unsigned int creYear = (tmCreTime->tm_year)+1900;
+				unsigned int creMonth = (tmCreTime->tm_mon) + 1;
+				unsigned int creDay = (tmCreTime->tm_mday);
+				unsigned int creHour = (tmCreTime->tm_hour);
+				unsigned int creMin = (tmCreTime->tm_min);
+				unsigned int creSec = (tmCreTime->tm_sec);
+
+				unsigned int cre_converted_year = (creYear>>8) | (creYear<<8);
+
+				// fwrite modify time here
+				fwrite(&cre_converted_year, 1, 2, disk);
+				fwrite(&creMonth, 1, 1, disk);
+				fwrite(&creDay, 1, 1, disk);
+				fwrite(&creHour, 1, 1, disk);
+				fwrite(&creMin, 1, 1, disk);
+				fwrite(&creSec, 1, 1, disk);
+
+				unsigned int fileLen = strlen(fileName);
+				unsigned long clear = 0x000000000000;
+				unsigned long clear2 = 0x00;
+				fwrite(&clear, 1, 6, disk);
+				fwrite(&clear, 1, 6, disk);
+				fwrite(&clear, 1, 6, disk);
+				fwrite(&clear, 1, 6, disk);
+				fwrite(&clear, 1, 6, disk);
+				fwrite(&clear2, 1, 1, disk);
+				fseek(disk, -31, SEEK_CUR);
+
+            	fwrite(fileName, 1, fileLen, disk);
+
+            	unsigned int extra = 31 - fileLen;
+            	fseek(disk, extra, SEEK_CUR);
+
             	fwrite(&unused, 1, 6, disk);
             	goto found_empty_root_dir;
             }
