@@ -1,6 +1,7 @@
 // Hardeep Kevin Gill
 // V00748073
-// CSC360 A3 Fall 2014
+// CSC360 A3
+// Fall 2014
 // Prof: Dr. Pan
 
 
@@ -19,7 +20,25 @@
 
 #define FILESIZE 4
 
-int getBlockSize(char *mmap) {
+
+// Prototypes
+int getBlockSize(char *mmap);
+int getBlockCount(char *mmap);
+int fatStart(char *mmap);
+int fatBlocks(char *mmap);
+int getRootStart(char *mmap);
+int getRootBlocks(char *mmap);
+int getFreeBlocks(char *mmap);
+int getReservedBlocks(char *mmap);
+int getAllocatedBlocks(char *mmap);
+void listFiles(char *mmap);
+void getFile(char *mmap, int start, char *fileName, int numOfBlocks, int fileSize);
+void findFile(char *mmap, char *fileName);
+void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap);
+
+
+
+int getBlockSize(char *mmap){
 	unsigned char *temp = malloc(sizeof(char));
 	int i;
 	int j = 1;
@@ -132,19 +151,18 @@ int getFreeBlocks(char *mmap){
 	int startFat = fatStart(mmap);
 	int blockSize = getBlockSize(mmap);
 	int numBlocks = fatBlocks(mmap);
-	int startIndex = (startFat*blockSize);
-	int endIndex = (startIndex + (blockSize*numBlocks));
+	int startIndex = (startFat*blockSize); // Starting index of FAT
+	int endIndex = (startIndex + (blockSize*numBlocks)); // Ending index of FAT
 
-	int value = 0;
+	int value = 0; // Holds summed value
 
-	// printf("%d\n", startIndex);
-	// printf("%d\n", endIndex);
-
+	// Temps for holding bytes until bit shifted
 	unsigned char *temp1 = malloc(sizeof(unsigned char));
 	unsigned char *temp2 = malloc(sizeof(unsigned char));
 	unsigned char *temp3 = malloc(sizeof(unsigned char));
 	unsigned char *temp4 = malloc(sizeof(unsigned char));
 
+	// Loop through FAT and count free blocks
 	for(i = startIndex; i < endIndex; i = i + 4){
 		*temp1 = mmap[i];
 		*temp2 = mmap[i+1];
@@ -171,19 +189,18 @@ int getReservedBlocks(char *mmap){
 	int startFat = fatStart(mmap);
 	int blockSize = getBlockSize(mmap);
 	int numBlocks = fatBlocks(mmap);
-	int startIndex = (startFat*blockSize);
-	int endIndex = (startIndex + (blockSize*numBlocks));
+	int startIndex = (startFat*blockSize); // Starting index of FAT
+	int endIndex = (startIndex + (blockSize*numBlocks)); // Ending index of FAT
 
-	int value = 0;
+	int value = 0; // Holds summed value
 
-	// printf("%d\n", startIndex);
-	// printf("%d\n", endIndex);
-
+	// Temps for holding bytes until bit shifted
 	unsigned char *temp1 = malloc(sizeof(unsigned char));
 	unsigned char *temp2 = malloc(sizeof(unsigned char));
 	unsigned char *temp3 = malloc(sizeof(unsigned char));
 	unsigned char *temp4 = malloc(sizeof(unsigned char));
 
+	// Loop through FAT and count reserved blocks
 	for(i = startIndex; i < endIndex; i = i + 4){
 		*temp1 = mmap[i];
 		*temp2 = mmap[i+1];
@@ -211,16 +228,18 @@ int getAllocatedBlocks(char *mmap){
 	int startFat = fatStart(mmap);
 	int blockSize = getBlockSize(mmap);
 	int numBlocks = fatBlocks(mmap);
-	int startIndex = (startFat*blockSize);
-	int endIndex = (startIndex + (blockSize*numBlocks));
+	int startIndex = (startFat*blockSize); // Starting index of FAT
+	int endIndex = (startIndex + (blockSize*numBlocks)); // Ending index of FAT
 
-	unsigned int value = 0;
+	unsigned int value = 0; // Holds summed value
 
+	// Temps for holding bytes until bit shifted
 	unsigned char *temp1 = malloc(sizeof(unsigned char));
 	unsigned char *temp2 = malloc(sizeof(unsigned char));
 	unsigned char *temp3 = malloc(sizeof(unsigned char));
 	unsigned char *temp4 = malloc(sizeof(unsigned char));
 
+	// Loop through FAT and count allocated blocks
 	for(i = startIndex; i < endIndex; i = i + 4){
 		*temp1 = mmap[i];
 		*temp2 = mmap[i+1];
@@ -315,13 +334,13 @@ void getFile(char *mmap, int start, char *fileName, int numOfBlocks, int fileSiz
 	int index = (blockSize*startFat) + (start*4); // index of FAT for next block
 	int i,j;
 
+	// Temps for bit shifting
 	unsigned char *temp1 = malloc(sizeof(unsigned char));
 	unsigned char *temp2 = malloc(sizeof(unsigned char));
 	unsigned char *temp3 = malloc(sizeof(unsigned char));
 	unsigned char *temp4 = malloc(sizeof(unsigned char));
 
-	// printf("%d\n", numOfBlocks);
-
+	// Loop through and get the file character by character
 	for(i = 0; i < numOfBlocks; i++){
 		for(j = start*blockSize; j < start*blockSize+blockSize; j++){
 			fprintf(fp, "%c", mmap[j]);
@@ -409,10 +428,10 @@ void findFile(char *mmap, char *fileName){
 }
 
 void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap){
-	int block_size = getBlockSize(mmap);
+	int block_size = getBlockSize(mmap); // Block size
 	unsigned long unused = 0xFFFFFFFFFF00; // Unused Byte for Root Dir
 	int statusByte = 0x03; // Status byte for Root Dir
-	int startFat = fatStart(mmap);
+	int startFat = fatStart(mmap); // Block where FAT starts
 	int i,j; // Iterators
 	int count = 0; // Counts free blocks in FAT
 	int numRootBlocks = getRootBlocks(mmap); // Number of blocks in root directory
@@ -420,26 +439,27 @@ void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap){
 	char *root_entry = (char *)malloc(sizeof(char) * length); // Holds the 64B of the entry in Root Dir
 	int offset = getRootStart(mmap) * block_size; // Where Root Directory starts
 
-	int numBlocks = fatBlocks(mmap);
-	int startIndex = (startFat*block_size);
-	int endIndex = (startIndex + (block_size*numBlocks));
-	int value = 0;
+	int numBlocks = fatBlocks(mmap); // Number of blocks in FAT
+	int startIndex = (startFat*block_size); // Start index of the FAT
+	int endIndex = (startIndex + (block_size*numBlocks)); // End index of the FAT
+	int value = 0; // Temp value to hold and sum bit shifted numbers
 	unsigned int value1 = 0;
 
-	unsigned char *temp1 = malloc(sizeof(unsigned char));
-	unsigned char *temp2 = malloc(sizeof(unsigned char));
-	unsigned char *temp3 = malloc(sizeof(unsigned char));
-	unsigned char *temp4 = malloc(sizeof(unsigned char));
+	unsigned char *temp1 = malloc(sizeof(unsigned char)); // Temp value to hold a byte from mmap
+	unsigned char *temp2 = malloc(sizeof(unsigned char)); // Temp value to hold a byte from mmap
+	unsigned char *temp3 = malloc(sizeof(unsigned char)); // Temp value to hold a byte from mmap
+	unsigned char *temp4 = malloc(sizeof(unsigned char)); // Temp value to hold a byte from mmap
 
 	// Get file size
 	int fileSize = (int)sf.st_size;
 
-	// Calculate number of blocks
+	// Calculate number of blocks the file needs
 	int numOfBlocks = fileSize / block_size;
 	if((fileSize % block_size) != 0){
 		numOfBlocks = numOfBlocks + 1;
 	}
 
+	// Declare arrays to hole indices of the blocks to be filled
 	unsigned int FATindices[numOfBlocks+1];
 	unsigned int convertedFAT[numOfBlocks+1];
 
@@ -466,7 +486,7 @@ void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap){
 	starting_block = starting_block - (startFat*block_size);
 	starting_block = starting_block/4;
 
-	// First calculate actual block numbers
+	// Calculate actual block numbers
 	unsigned int actualBlocks[numOfBlocks+1];
 
 	for(i = 0; i <= numOfBlocks; i++){
@@ -483,14 +503,15 @@ void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap){
 		convertedFAT[i] = htonl(actualBlocks[i]);
 	}
 
-	unsigned long eof = 0xFFFFFFFF;
+	unsigned long eof = 0xFFFFFFFF; // Indicates end of file
 
-	// Write to img
+	// Write to FAT the linked list needed to find the next block
 	for(i = 0; i < numOfBlocks - 1; i++){
 		fseek(disk, FATindices[i], SEEK_SET);
 		fwrite(&convertedFAT[i+1], 1, 4, disk);
 	}
 
+	// Add the end
 	fseek(disk, FATindices[numOfBlocks-1], SEEK_SET);
 	fwrite(&eof, 1, 4, disk);
 
@@ -498,11 +519,12 @@ void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap){
 	// Copy data to blocks
 	int offs = 0;
 
-	fseek(disk, 0, SEEK_SET);
-	fseek(fp, 0, SEEK_SET);
+	fseek(disk, 0, SEEK_SET); // Set to beginning
+	fseek(fp, 0, SEEK_SET); // Set to beginning
 
-	char c;
+	char c; // Holds the current value of the file fp to be written to image
 
+	// Write the files data to the disk image
 	for(i = 0; i < numOfBlocks; i++){
 		offs = actualBlocks[i]*block_size;
 		fseek(disk, offs, SEEK_SET);
@@ -513,19 +535,16 @@ void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap){
 	}
 
 
-	// Correct Endian
+	// Correct Endian on info that will go in Root Dir
 	int converted_starting_block = htonl(starting_block);
-	printf("%d\n", starting_block);
 	int converted_num_blocks = htonl(numOfBlocks);
-	printf("%d\n", numOfBlocks);
 	int converted_file_size = htonl(fileSize);
-	printf("%d\n", fileSize);
 
 	// Go to Root Directory and add file info
 	for(i = 0; i < numRootBlocks; i++){ // Loop through the number of blocks in the root directory
         for(j = 0; j < 8; j++){ // Each directory is 64B so there are 8 directory entries per block
         	root_entry = memcpy(root_entry, mmap+offset+block_size*i+length*j, length);
-            if(root_entry[0] == 0x00){
+            if(root_entry[0] == 0x00){ // Makes sure it is available
             	value1 = (int)((mmap+offset+block_size*i+length*j) - mmap);
             	fseek(disk, value1, SEEK_SET);
             	fwrite(&statusByte, 1, 1, disk);
@@ -558,7 +577,7 @@ void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap){
 
 
 
-				// Create time
+				// Create time (now)
 				time_t ct;
 				time(&ct);
 				struct tm *tmCreTime;
@@ -669,14 +688,14 @@ int main(int argc, char *argv[]){
 	        return 0;
 	    }
 
-	    // fd is now the file descriptor for the opened file
+	    // fd is now the file descriptor for image
 	    if((fd=open(argv[1], O_RDONLY))){
 	        // fstat returns information about the file into sf
-	        fstat(fd, &sf);
+	        fstat(fd, &sf); // stat the disk image
 
-	        p = mmap(NULL, sf.st_size, PROT_READ, MAP_SHARED, fd, 0);
+	        p = mmap(NULL, sf.st_size, PROT_READ, MAP_SHARED, fd, 0); // Memory map the disk image
 
-	        listFiles(p);
+	        listFiles(p); // Call function to list files
 
 	    }
 
@@ -688,31 +707,32 @@ int main(int argc, char *argv[]){
 	    struct stat sf; // struct stat holds information about a file
 	    char *p; // Pointer to file
 
-	    if(argc != 3){
+	    if(argc != 3){ // Make sure there are 3 command line arguments
 	        printf("usage: %s filename\n", argv[0]);
 	        return 0;
 	    }
 
+	    // fd is now the file descriptor for image
 	    if((fd=open(argv[1], O_RDONLY))){
 	        // fstat returns information about the file into sf
-	        fstat(fd, &sf);
+	        fstat(fd, &sf); // stat the image
 
-	        p = mmap(NULL, sf.st_size, PROT_READ, MAP_SHARED, fd, 0);
+	        p = mmap(NULL, sf.st_size, PROT_READ, MAP_SHARED, fd, 0); // memory map the image
 
-	        findFile(p, argv[2]);
+	        findFile(p, argv[2]); // Call function to find file
 
 	    }
 
 		return 0;
 
 	#elif defined(PART4)
-		int fd, fd2; // File descriptor
+		int fd, fd2; // File descriptors
 		struct stat sf, sf2; // struct stat holds information about a file
-		FILE *fp;
-		FILE *disk;
+		FILE *fp; // The file to be written to disk
+		FILE *disk; // The disk image
 		char *p; // Pointer to file
 
-	    if(argc != 3){
+	    if(argc != 3){ // Make sure there are 3 command line arguments
 	        printf("usage: %s filename\n", argv[0]);
 	        return 0;
 	    }
@@ -720,25 +740,26 @@ int main(int argc, char *argv[]){
 	    // fd is now the file descriptor for the opened file
 	    if((fd=open(argv[2], O_RDONLY))){
 	        // fstat returns information about the file into sf
-	        fstat(fd, &sf);
+	        fstat(fd, &sf); // fstat the file
 
-	        if((fd2=open(argv[1], O_RDONLY))){
+	        if((fd2=open(argv[1], O_RDONLY))){ //fd2 is now the file descriptor of the image
 
-	        	fstat(fd2, &sf2);
+	        	fstat(fd2, &sf2); // fstat the disk image
 
-		        p = mmap(NULL, sf2.st_size, PROT_READ, MAP_SHARED, fd2, 0);
+		        p = mmap(NULL, sf2.st_size, PROT_READ, MAP_SHARED, fd2, 0); // memory map the disk image
 
-				fp = fopen(argv[2], "r");
+				fp = fopen(argv[2], "r"); // Open file
 				if(fp){
-					disk = fopen(argv[1], "r+");
-					putFile(fp, disk, sf, argv[2], p);
+					disk = fopen(argv[1], "r+"); // Open disk
+					putFile(fp, disk, sf, argv[2], p); // Call function to put file on disk
 				}
-				else{
+				else{ // Could not open file
 					printf("File not found\n");
 					exit(0);
 				}
 
 		        fclose(fp);
+		        fclose(disk);
 
 	    	}
 
