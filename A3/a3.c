@@ -1,3 +1,9 @@
+// Hardeep Kevin Gill
+// V00748073
+// CSC360 A3 Fall 2014
+// Prof: Dr. Pan
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -434,8 +440,8 @@ void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap){
 		numOfBlocks = numOfBlocks + 1;
 	}
 
-	unsigned int FATindices[numOfBlocks];
-	unsigned int convertedFAT[numOfBlocks];
+	unsigned int FATindices[numOfBlocks+1];
+	unsigned int convertedFAT[numOfBlocks+1];
 
 
 	// Find available spots in FAT and store them in FATindices
@@ -449,7 +455,7 @@ void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap){
 		if(value == 0){
 			FATindices[count] = i;
 			count++;
-			if(count == numOfBlocks){
+			if(count == (numOfBlocks+1)){
 				break;
 			}
 		}
@@ -460,10 +466,24 @@ void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap){
 	starting_block = starting_block - (startFat*block_size);
 	starting_block = starting_block/4;
 
-	// Correct Endian so we can write to img
-	for(i = 0; i < numOfBlocks; i++){
-		convertedFAT[i] = htonl(FATindices[i]);
+	// First calculate actual block numbers
+	unsigned int actualBlocks[numOfBlocks+1];
+
+	for(i = 0; i <= numOfBlocks; i++){
+		actualBlocks[i] = FATindices[i];
 	}
+
+	for(i = 0; i <= numOfBlocks; i++){
+		actualBlocks[i] = actualBlocks[i] - (startFat*block_size);
+		actualBlocks[i] = actualBlocks[i]/4;
+	}
+
+	// Correct Endian so we can write to img
+	for(i = 0; i <= numOfBlocks; i++){
+		convertedFAT[i] = htonl(actualBlocks[i]);
+	}
+
+	unsigned long eof = 0xFFFFFFFF;
 
 	// Write to img
 	for(i = 0; i < numOfBlocks - 1; i++){
@@ -471,33 +491,25 @@ void putFile(FILE *fp, FILE *disk, struct stat sf, char *fileName, char *mmap){
 		fwrite(&convertedFAT[i+1], 1, 4, disk);
 	}
 
+	fseek(disk, FATindices[numOfBlocks-1], SEEK_SET);
+	fwrite(&eof, 1, 4, disk);
+
 
 	// Copy data to blocks
-	// First calculate actual block numbers
-	unsigned int actualBlocks[numOfBlocks];
-
-	for(i = 0; i < numOfBlocks; i++){
-		actualBlocks[i] = FATindices[i];
-	}
-
-	for(i = 0; i < numOfBlocks; i++){
-		actualBlocks[i] = actualBlocks[i] - (startFat*block_size);
-		actualBlocks[i] = actualBlocks[i]/4;
-	}
-
-	printf("%d\n", actualBlocks[0]);
-	printf("%d\n", actualBlocks[1]);
-	printf("%d\n", actualBlocks[2]);
-	printf("%d\n", actualBlocks[3]);
-	printf("%d\n", actualBlocks[4]);
-
 	int offs = 0;
+
+	fseek(disk, 0, SEEK_SET);
+	fseek(fp, 0, SEEK_SET);
+
+	char c;
 
 	for(i = 0; i < numOfBlocks; i++){
 		offs = actualBlocks[i]*block_size;
 		fseek(disk, offs, SEEK_SET);
-		fwrite(fp, 1, block_size, disk);
-		fseek(disk, 0, SEEK_SET);
+		for(j = 0; j < block_size; j++){
+			c = getc(fp);
+			fwrite(&c, 1, 1, disk);
+		}
 	}
 
 
